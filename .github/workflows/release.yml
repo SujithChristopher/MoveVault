@@ -1,0 +1,143 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v0.1.0
+  workflow_dispatch:  # Manual trigger
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: ActiGraphUploader.exe
+            asset_name: ActiGraphUploader-Windows.exe
+          - os: macos-latest
+            artifact_name: ActiGraphUploader
+            asset_name: ActiGraphUploader-macOS
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Create embedded credentials
+      run: |
+        python -c "
+        import json
+        credentials = {
+            'aws_access_key_id': '${{ secrets.AWS_ACCESS_KEY_ID }}',
+            'aws_secret_access_key': '${{ secrets.AWS_SECRET_ACCESS_KEY }}',
+            'aws_bucket_name': '${{ secrets.AWS_BUCKET_NAME }}',
+            'aws_region': '${{ secrets.AWS_REGION }}',
+            'base_folder': '${{ secrets.AWS_BASE_FOLDER }}'
+        }
+        with open('.credentials', 'w') as f:
+            json.dump(credentials, f)
+        "
+
+    - name: Build executable
+      run: python build.py
+
+    - name: Create release archive (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        mkdir release
+        copy dist\ActiGraphUploader.exe release\
+        copy README.md release\ 2>nul || echo "README not found"
+        powershell Compress-Archive -Path release\* -DestinationPath ActiGraphUploader-Windows-x64.zip
+      shell: cmd
+
+    - name: Create release archive (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        mkdir release
+        cp -R dist/ActiGraphUploader release/
+        cp README.md release/ 2>/dev/null || echo "README not found"
+        tar -czf ActiGraphUploader-macOS-x64.tar.gz -C release .
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.asset_name }}
+        path: |
+          ActiGraphUploader-Windows-x64.zip
+          ActiGraphUploader-macOS-x64.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download Windows artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: ActiGraphUploader-Windows.exe
+        path: ./artifacts/windows/
+
+    - name: Download macOS artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: ActiGraphUploader-macOS
+        path: ./artifacts/macos/
+
+    - name: Get version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: ActiGraph S3 Uploader v${{ steps.get_version.outputs.VERSION }}
+        body: |
+          ## ActiGraph S3 Uploader v${{ steps.get_version.outputs.VERSION }}
+          
+          ### What's New
+          - Auto-update functionality
+          - Cross-platform support (Windows & macOS)
+          - Enhanced UI with version information
+          - Improved error handling and logging
+          
+          ### Installation
+          1. Download the appropriate file for your operating system
+          2. Extract the zip file
+          3. Run the executable
+          
+          ### System Requirements
+          - Windows 10+ or macOS 10.14+
+          - Internet connection for S3 uploads and auto-updates
+          - AWS S3 credentials configured
+          
+          ### Files
+          - `ActiGraphUploader-Windows-x64.zip`: Windows executable  
+          - `ActiGraphUploader-macOS-x64.tar.gz`: macOS executable
+          
+          For installation instructions and usage, see the [README](https://github.com/${{ github.repository }}/blob/main/README.md).
+        files: |
+          ./artifacts/windows/ActiGraphUploader-Windows-x64.zip
+          ./artifacts/macos/ActiGraphUploader-macOS-x64.tar.gz
+        draft: false
+        prerelease: false

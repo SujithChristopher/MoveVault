@@ -1,0 +1,1 @@
+"""Core modules for ActiGraph S3 Uploader."""

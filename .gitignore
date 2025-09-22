@@ -1,0 +1,33 @@
+# Logs and temporary files
+actigraph_uploader_logs/
+*.log
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Build files
+build/
+dist/
+*.spec
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Claude specific (optional - remove if you want to track CLAUDE.md)
+CLAUDE.md
+.claude
