@@ -12,17 +12,19 @@ permissions:
 
 jobs:
   build:
-    name: Build on ${{ matrix.os }}
+    name: Build ${{ matrix.institution }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        institution: [Ranipet, Manipal, Ludhiana, CMC]
+        os: [windows-latest, macos-latest]
         include:
           - os: windows-latest
-            artifact_name: ActiGraphUploader.exe
-            asset_name: ActiGraphUploader-Windows.exe
+            platform: Windows
+            ext: .exe
           - os: macos-latest
-            artifact_name: ActiGraphUploader
-            asset_name: ActiGraphUploader-macOS
+            platform: macOS
+            ext: ""
 
     steps:
     - name: Checkout code
@@ -39,47 +41,66 @@ jobs:
         pip install -r requirements.txt
 
     - name: Create embedded credentials
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
+        AWS_REGION: ${{ secrets.AWS_REGION }}
+        INSTITUTION: ${{ matrix.institution }}
       run: |
         python -c "
         import json
+        import os
         credentials = {
-            'aws_access_key_id': '${{ secrets.AWS_ACCESS_KEY_ID }}',
-            'aws_secret_access_key': '${{ secrets.AWS_SECRET_ACCESS_KEY }}',
-            'aws_bucket_name': '${{ secrets.AWS_BUCKET_NAME }}',
-            'aws_region': '${{ secrets.AWS_REGION }}',
-            'base_folder': '${{ secrets.AWS_BASE_FOLDER }}'
+            'aws_access_key_id': os.environ['AWS_ACCESS_KEY_ID'],
+            'aws_secret_access_key': os.environ['AWS_SECRET_ACCESS_KEY'],
+            'aws_bucket_name': os.environ['AWS_BUCKET_NAME'],
+            'aws_region': os.environ['AWS_REGION'],
+            'base_folder': os.environ['INSTITUTION']
         }
         with open('.credentials', 'w') as f:
             json.dump(credentials, f)
+        print('Credentials file created successfully')
         "
 
+    - name: Verify credentials file
+      run: |
+        if [ -f ".credentials" ]; then
+          echo "✅ Credentials file exists"
+          python -c "import json; print('✅ Credentials file is valid JSON') if json.load(open('.credentials')) else None"
+        else
+          echo "❌ Credentials file not found!"
+          exit 1
+        fi
+      shell: bash
+
     - name: Build executable
-      run: python build.py
+      run: python build.py --institution ${{ matrix.institution }}
 
     - name: Create release archive (Windows)
       if: matrix.os == 'windows-latest'
       run: |
         mkdir release
-        copy dist\ActiGraphUploader.exe release\
+        copy dist\MoveVault_${{ matrix.institution }}.exe release\
         copy README.md release\ 2>nul || echo "README not found"
-        powershell Compress-Archive -Path release\* -DestinationPath ActiGraphUploader-Windows-x64.zip
+        powershell Compress-Archive -Path release\* -DestinationPath MoveVault_${{ matrix.institution }}-Windows-x64.zip
       shell: cmd
 
     - name: Create release archive (macOS)
       if: matrix.os == 'macos-latest'
       run: |
         mkdir release
-        cp -R dist/ActiGraphUploader release/
+        cp -R dist/MoveVault_${{ matrix.institution }} release/
         cp README.md release/ 2>/dev/null || echo "README not found"
-        tar -czf ActiGraphUploader-macOS-x64.tar.gz -C release .
+        tar -czf MoveVault_${{ matrix.institution }}-macOS-x64.tar.gz -C release .
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.asset_name }}
+        name: MoveVault_${{ matrix.institution }}-${{ matrix.platform }}
         path: |
-          ActiGraphUploader-Windows-x64.zip
-          ActiGraphUploader-macOS-x64.tar.gz
+          MoveVault_${{ matrix.institution }}-Windows-x64.zip
+          MoveVault_${{ matrix.institution }}-macOS-x64.tar.gz
 
   release:
     needs: build
@@ -90,17 +111,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Download Windows artifact
+    - name: Download all artifacts
       uses: actions/download-artifact@v4
       with:
-        name: ActiGraphUploader-Windows.exe
-        path: ./artifacts/windows/
-
-    - name: Download macOS artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: ActiGraphUploader-macOS
-        path: ./artifacts/macos/
+        path: ./artifacts/
 
     - name: Get version from tag
       id: get_version
@@ -111,33 +125,47 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ github.ref_name }}
-        name: ActiGraph S3 Uploader v${{ steps.get_version.outputs.VERSION }}
+        name: MoveVault v${{ steps.get_version.outputs.VERSION }}
         body: |
-          ## ActiGraph S3 Uploader v${{ steps.get_version.outputs.VERSION }}
-          
+          ## MoveVault v${{ steps.get_version.outputs.VERSION }}
+
           ### What's New
+          - Multi-institution support with dedicated binaries
           - Auto-update functionality
           - Cross-platform support (Windows & macOS)
-          - Enhanced UI with version information
+          - Enhanced UI with institution-specific branding
           - Improved error handling and logging
-          
+
+          ### Institution-Specific Downloads
+          Choose the binary for your institution:
+
+          **Ranipet Medical Center:**
+          - Windows: `MoveVault_Ranipet-Windows-x64.zip`
+          - macOS: `MoveVault_Ranipet-macOS-x64.tar.gz`
+
+          **Manipal Hospital:**
+          - Windows: `MoveVault_Manipal-Windows-x64.zip`
+          - macOS: `MoveVault_Manipal-macOS-x64.tar.gz`
+
+          **Ludhiana Medical Center:**
+          - Windows: `MoveVault_Ludhiana-Windows-x64.zip`
+          - macOS: `MoveVault_Ludhiana-macOS-x64.tar.gz`
+
+          **Christian Medical College (CMC):**
+          - Windows: `MoveVault_CMC-Windows-x64.zip`
+          - macOS: `MoveVault_CMC-macOS-x64.tar.gz`
+
           ### Installation
-          1. Download the appropriate file for your operating system
-          2. Extract the zip file
+          1. Download the appropriate file for your institution and operating system
+          2. Extract the zip/tar.gz file
           3. Run the executable
-          
+
           ### System Requirements
           - Windows 10+ or macOS 10.14+
           - Internet connection for S3 uploads and auto-updates
           - AWS S3 credentials configured
-          
-          ### Files
-          - `ActiGraphUploader-Windows-x64.zip`: Windows executable  
-          - `ActiGraphUploader-macOS-x64.tar.gz`: macOS executable
-          
+
           For installation instructions and usage, see the [README](https://github.com/${{ github.repository }}/blob/main/README.md).
-        files: |
-          ./artifacts/windows/ActiGraphUploader-Windows-x64.zip
-          ./artifacts/macos/ActiGraphUploader-macOS-x64.tar.gz
+        files: ./artifacts/**/*
         draft: false
         prerelease: false

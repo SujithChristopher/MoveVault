@@ -4,6 +4,7 @@ from datetime import datetime
 import base64
 import boto3
 from botocore.exceptions import ClientError
+from core.institution_config import get_base_folder
 
 # AWS credentials - try embedded file first, then environment variables, then fallback
 def get_aws_credentials():
@@ -33,7 +34,7 @@ def get_aws_credentials():
                 secret_key = credentials.get('aws_secret_access_key')
                 bucket_name = credentials.get('aws_bucket_name', 'homerclouds')
                 region = credentials.get('aws_region', 'us-east-1')
-                base_folder = credentials.get('base_folder', 'Ranipet')
+                base_folder = credentials.get('base_folder', get_base_folder())
                 
                 if access_key and secret_key:
                     return access_key, secret_key, bucket_name, region, base_folder
@@ -45,13 +46,13 @@ def get_aws_credentials():
     secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
     bucket_name = os.getenv('AWS_BUCKET_NAME', 'homerclouds')
     region = os.getenv('AWS_REGION', 'us-east-1')
-    base_folder = os.getenv('AWS_BASE_FOLDER', 'Ranipet')
+    base_folder = os.getenv('AWS_BASE_FOLDER', get_base_folder())
     
     if access_key and secret_key:
         return access_key, secret_key, bucket_name, region, base_folder
     
     # Return placeholder values if nothing is configured
-    return "YOUR_ACCESS_KEY_HERE", "YOUR_SECRET_KEY_HERE", "homerclouds", "us-east-1", "Ranipet"
+    return "YOUR_ACCESS_KEY_HERE", "YOUR_SECRET_KEY_HERE", "homerclouds", "us-east-1", get_base_folder()
 
 AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_BUCKET_NAME, AWS_REGION, BASE_FOLDER = get_aws_credentials()
 
@@ -62,22 +63,22 @@ class ApplicationLogger:
         self.local_log_file = None
         self.session_start_time = datetime.now()
         self.session_id = self.session_start_time.strftime("%Y%m%d_%H%M%S")
-        self.s3_log_key = f"{BASE_FOLDER}/logs/actigraph_uploader_log.txt"
+        self.s3_log_key = f"{BASE_FOLDER}/logs/movevault_log.txt"
         self.init_local_log()
 
     def init_local_log(self):
-        log_dir = os.path.join("actigraph_uploader_logs")
+        log_dir = os.path.join("movevault_logs")
         os.makedirs(log_dir, exist_ok=True)
         log_filename = f"session_{self.session_id}.log"
         self.local_log_file = os.path.join(log_dir, log_filename)
         with open(self.local_log_file, 'w', encoding='utf-8') as f:
-            f.write(f"=== ActiGraph S3 Uploader Session Log ===\n")
+            f.write(f"=== MoveVault Session Log ===\n")
             f.write(f"Session ID: {self.session_id}\n")
             f.write(f"Start Time: {self.session_start_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"Target S3 Bucket: {AWS_BUCKET_NAME}\n")
             f.write(f"Base Folder: {BASE_FOLDER}\n")
             f.write("="*50 + "\n\n")
-        self.log_action("APPLICATION_START", "ActiGraph S3 Uploader started")
+        self.log_action("APPLICATION_START", "MoveVault started")
         self.test_aws_connection()
 
     def log_action(self, action_type, description, details=None):

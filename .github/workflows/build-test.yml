@@ -36,23 +36,39 @@ jobs:
         python -m py_compile main.py
         python -m py_compile version.py
         python -c "import core.autoupdate; print('Autoupdate module imports successfully')"
-        python -c "import ui.main_window; print('Main window module imports successfully')"
+        python -c "from ui.main_window import MoveVaultUploader; print('Main window module imports successfully')"
 
-    - name: Test build process
-      run: python build.py
+    - name: Create test credentials
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
         AWS_REGION: ${{ secrets.AWS_REGION }}
+      run: |
+        python -c "
+        import json
+        import os
+        credentials = {
+            'aws_access_key_id': os.environ['AWS_ACCESS_KEY_ID'],
+            'aws_secret_access_key': os.environ['AWS_SECRET_ACCESS_KEY'],
+            'aws_bucket_name': os.environ['AWS_BUCKET_NAME'],
+            'aws_region': os.environ['AWS_REGION'],
+            'base_folder': 'Ranipet'
+        }
+        with open('.credentials', 'w') as f:
+            json.dump(credentials, f)
+        "
+
+    - name: Test build process (Ranipet)
+      run: python build.py --institution Ranipet
 
     - name: Verify executable created
       shell: bash
       run: |
         if [ "${{ matrix.os }}" == "windows-latest" ]; then
-          ls -la dist/ActiGraphUploader.exe
+          ls -la dist/MoveVault_Ranipet.exe
         else
-          ls -la dist/ActiGraphUploader
+          ls -la dist/MoveVault_Ranipet
         fi
 
     - name: Upload test build

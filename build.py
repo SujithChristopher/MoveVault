@@ -1,19 +1,28 @@
-"""Build script for ActiGraph S3 Uploader using PyInstaller."""
+"""Build script for MoveVault using PyInstaller."""
 
 import PyInstaller.__main__
 import os
 import sys
 import shutil
+import argparse
+import json
 from pathlib import Path
+from core.institution_config import INSTITUTIONS
 
-def build_executable():
+def build_executable(institution=None):
     """Build the executable using PyInstaller."""
-    
+
     # Get the current directory
     current_dir = Path(__file__).parent
-    
-    # Define build parameters
-    app_name = "ActiGraphUploader"
+
+    # Determine institution and app name
+    if institution and institution in INSTITUTIONS:
+        app_name = INSTITUTIONS[institution]['app_name']
+    else:
+        # If no institution specified, use generic name
+        app_name = "MoveVault"
+        institution = None
+
     main_script = str(current_dir / "main.py")
     
     # PyInstaller arguments
@@ -53,6 +62,16 @@ def build_executable():
         print(f"Including embedded credentials file: {credentials_path}")
     else:
         print("Credentials file not found, building without embedded credentials...")
+
+    # Add institution file if specified (for embedded builds)
+    if institution:
+        institution_file = current_dir / ".institution"
+        with open(institution_file, 'w') as f:
+            f.write(institution)
+        args.extend(['--add-data', f'{institution_file}:.'])
+        print(f"Including embedded institution file: {institution_file}")
+    else:
+        print("No institution specified, building generic version...")
     
     # Add platform-specific arguments
     if sys.platform == "win32":
@@ -80,4 +99,20 @@ def build_executable():
     print(f"\nBuild completed! Executable is in: {current_dir / 'dist'}")
 
 if __name__ == "__main__":
-    build_executable()
+    parser = argparse.ArgumentParser(description='Build MoveVault executable')
+    parser.add_argument('--institution', choices=list(INSTITUTIONS.keys()),
+                       help='Institution to build for (creates institution-specific binary)')
+    parser.add_argument('--all', action='store_true',
+                       help='Build binaries for all institutions')
+
+    args = parser.parse_args()
+
+    if args.all:
+        print("Building binaries for all institutions...")
+        for institution in INSTITUTIONS.keys():
+            print(f"\n{'='*50}")
+            print(f"Building for institution: {institution}")
+            print(f"{'='*50}")
+            build_executable(institution)
+    else:
+        build_executable(args.institution)

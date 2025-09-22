@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QApplication, QMessageBox
 import sys
-from ui.main_window import ActiGraphS3Uploader
+from ui.main_window import MoveVaultUploader
 from ui.aws_config_dialog import AWSConfigDialog
 from core.logger import AWS_ACCESS_KEY, AWS_SECRET_KEY
 
@@ -21,7 +21,7 @@ def main():
         elif reply == QMessageBox.No:
             sys.exit(0)
 
-    window = ActiGraphS3Uploader()
+    window = MoveVaultUploader()
     window.show()
 
     app.aboutToQuit.connect(window.logger.finalize_session)

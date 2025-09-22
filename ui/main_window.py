@@ -18,10 +18,12 @@ from ui.update_dialog import UpdateDialog
 from ui.subject_mapping_dialog import SubjectMappingDialog
 # AWS Config Dialog removed - credentials are now embedded in the executable
 from version import __version__, __app_name__
-class ActiGraphS3Uploader(QMainWindow):
+from core.institution_config import get_display_name
+
+class MoveVaultUploader(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle(f"{__app_name__} v{__version__} - HomeClouds")
+        self.setWindowTitle(f"{__app_name__} v{__version__} - {get_display_name()}")
         self.setMinimumSize(900, 700)
         self.resize(1000, 800)
 
@@ -48,7 +50,7 @@ class ActiGraphS3Uploader(QMainWindow):
         main_layout = QVBoxLayout(central_widget)
 
         header_layout = QHBoxLayout()
-        title_label = QLabel("ActiGraph Files S3 Uploader")
+        title_label = QLabel("MoveVault - ActiGraph Files S3 Uploader")
         title_font = QFont()
         title_font.setPointSize(16)
         title_font.setBold(True)
