@@ -59,6 +59,9 @@ jobs:
             json.dump(credentials, f)
         "
 
+    - name: Verify credentials file
+      run: python verify_credentials.py
+
     - name: Test build process (Ranipet)
       run: python build.py --institution Ranipet
 

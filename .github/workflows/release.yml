@@ -64,24 +64,7 @@ jobs:
         "
 
     - name: Verify credentials file
-      run: |
-        python -c "
-        import json
-        import os
-        if os.path.exists('.credentials'):
-            print('SUCCESS: Credentials file exists')
-            try:
-                with open('.credentials', 'r') as f:
-                    data = json.load(f)
-                print('SUCCESS: Credentials file is valid JSON')
-                print(f'SUCCESS: Institution: {data.get(\"base_folder\", \"unknown\")}')
-            except Exception as e:
-                print(f'ERROR: Credentials file invalid: {e}')
-                exit(1)
-        else:
-            print('ERROR: Credentials file not found!')
-            exit(1)
-        "
+      run: python verify_credentials.py
 
     - name: Build executable
       run: python build.py --institution ${{ matrix.institution }}
