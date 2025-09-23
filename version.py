@@ -1,6 +1,6 @@
 """Version information for MoveVault."""
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 __app_name__ = "MoveVault"
 __author__ = "HomeClouds"
 __description__ = "A GUI application for uploading ActiGraph files to AWS S3"
