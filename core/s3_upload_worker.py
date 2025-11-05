@@ -5,9 +5,32 @@ import os
 from botocore.exceptions import ClientError, NoCredentialsError
 from core.logger import AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_BUCKET_NAME, AWS_REGION, BASE_FOLDER
 from core.email_utils import send_upload_report
-
-right_id = ["MOS2E19231076", "dfbsakfbs"]
-left_id = ["jdfnsakaf", "kdsakjfd"]
+from botocore.config import Config
+right_id = ["MOS2E19231076", 
+            "MOS2E49240956",
+            "MOS2E49240931",
+            "MOS2E49240937",
+            "MOS2E49240948",
+            "MOS2E49240985",
+            "MOS2E49240978",
+            "MOS2E49240949",
+	        "MOS2E49240871",
+	        "MOS2E49240982",
+	        "MOS2E49240916",
+	        "MOS2E49240934"]
+left_id = ["MOS2E50240763"
+            ,"MOS2E50240769"
+            ,"MOS2E50240770"
+            ,"MOS2E50240761"
+            ,"MOS2E50240771"
+            ,"MOS2E50240754"
+            ,"MOS2E50240768"
+            ,"MOS2E50240756"
+            ,"MOS2E49240899"
+            ,"MOS2E49240890"
+            ,"MOS2E46240317"
+            ,"MOS2E49240927"
+            ,"MOS2E49240942"]
 device_name = "actilife"
 class S3UploadWorker(QThread):
     progress_updated = Signal(int)
@@ -27,11 +50,17 @@ class S3UploadWorker(QThread):
 
     def run(self):
         try:
+            config = Config(
+                connect_timeout=120,
+                read_timeout=300,
+                retries={'max_attempts': 10, 'mode': 'standard'}
+            )
             s3_client = boto3.client(
                 's3',
                 aws_access_key_id=AWS_ACCESS_KEY,
                 aws_secret_access_key=AWS_SECRET_KEY,
-                region_name=AWS_REGION
+                region_name=AWS_REGION,
+                config=config
             )
 
             total_files = len(self.file_data)
@@ -51,13 +80,24 @@ class S3UploadWorker(QThread):
                 try:
                     s3_client.head_object(Bucket=AWS_BUCKET_NAME, Key=s3_key)
                     skipped_count += 1
-                    self.file_uploaded.emit(file_name, subject_name, "✓ Already uploaded (skipped)", use_hand)
+                    self.file_uploaded.emit(file_name, subject_name, "✓ Already uploaded (Skipped)", use_hand)
                     file_statuses.append(f"{file_name} - Skipped")
                 except ClientError as e:
                     if int(e.response['Error']['Code']) == 404:
-                        s3_client.upload_file(file_path, AWS_BUCKET_NAME, s3_key)
+                        from boto3.s3.transfer import TransferConfig
+
+                        config = TransferConfig(
+                            multipart_threshold=50 * 1024 * 1024,  # 50 MB
+                            multipart_chunksize=10 * 1024 * 1024,  # 10 MB
+                            max_concurrency=5,
+                            use_threads=True
+                        )
+
+                        s3_client.upload_file(file_path, AWS_BUCKET_NAME, s3_key, Config=config)
+
+                        # s3_client.upload_file(file_path, AWS_BUCKET_NAME, s3_key)
                         uploaded_count += 1
-                        self.file_uploaded.emit(file_name, subject_name, "✓ Successfully uploaded", use_hand)
+                        self.file_uploaded.emit(file_name, subject_name, "✓ Uploaded", use_hand)
                         file_statuses.append(f"{file_name} - Uploaded")
                     else:
                         raise
