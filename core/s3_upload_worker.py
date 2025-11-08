@@ -2,6 +2,8 @@
 from PySide6.QtCore import QThread, Signal
 import boto3
 import os
+import threading
+import time
 from botocore.exceptions import ClientError, NoCredentialsError
 from core.logger import AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_BUCKET_NAME, AWS_REGION, BASE_FOLDER
 from core.email_utils import send_upload_report
@@ -31,6 +33,27 @@ left_id = ["MOS2E50240763",
             "MOS2E49240931",
             "MOS2E49240890"]
 device_name = "actilife"
+
+class S3ProgressTracker:
+    def __init__(self, file_path, total_files, file_index, progress_signal):
+        self._file_path = file_path
+        self._size = float(os.path.getsize(file_path))
+        self._seen_so_far = 0
+        self._lock = threading.Lock()
+        self._start_time = time.time()
+        self._file_index = file_index
+        self._total_files = total_files
+        self._progress_signal = progress_signal
+
+    def __call__(self, bytes_amount):
+        with self._lock:
+            self._seen_so_far += bytes_amount
+            # Calculate per-file progress
+            file_progress = self._seen_so_far / self._size
+            # Combine with overall index to compute total progress
+            overall_progress = ((self._file_index + file_progress) / self._total_files) * 100
+            self._progress_signal.emit(int(overall_progress))
+            
 class S3UploadWorker(QThread):
     progress_updated = Signal(int)
     file_uploaded = Signal(str, str, str, str)
@@ -85,15 +108,26 @@ class S3UploadWorker(QThread):
                     if int(e.response['Error']['Code']) == 404:
                         from boto3.s3.transfer import TransferConfig
 
-                        config = TransferConfig(
+                        transfer_config = TransferConfig(
                             multipart_threshold=50 * 1024 * 1024,  # 50 MB
                             multipart_chunksize=10 * 1024 * 1024,  # 10 MB
                             max_concurrency=5,
                             use_threads=True
                         )
+                         # Create progress tracker instance for this file
+                        progress_tracker = S3ProgressTracker(
+                            file_path, total_files, i, self.progress_updated
+                        )
 
-                        s3_client.upload_file(file_path, AWS_BUCKET_NAME, s3_key, Config=config)
-
+                        # Perform upload with progress callback
+                        s3_client.upload_file(
+                            file_path,
+                            AWS_BUCKET_NAME,
+                            s3_key,
+                            Config=transfer_config,
+                            Callback=progress_tracker
+                        )
+                        # s3_client.upload_file(file_path, AWS_BUCKET_NAME, s3_key, Config=transfer_config)
                         # s3_client.upload_file(file_path, AWS_BUCKET_NAME, s3_key)
                         uploaded_count += 1
                         self.file_uploaded.emit(file_name, subject_name, "✓ Uploaded", use_hand)
