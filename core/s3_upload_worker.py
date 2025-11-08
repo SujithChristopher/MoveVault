@@ -6,31 +6,30 @@ from botocore.exceptions import ClientError, NoCredentialsError
 from core.logger import AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_BUCKET_NAME, AWS_REGION, BASE_FOLDER
 from core.email_utils import send_upload_report
 from botocore.config import Config
-right_id = ["MOS2E19231076", 
-            "MOS2E49240956",
-            "MOS2E49240931",
+right_id = ["MOS2E49240956",
+            "MOS2E49240942",
             "MOS2E49240937",
             "MOS2E49240948",
             "MOS2E49240985",
             "MOS2E49240978",
             "MOS2E49240949",
-	        "MOS2E49240871",
-	        "MOS2E49240982",
-	        "MOS2E49240916",
-	        "MOS2E49240934"]
-left_id = ["MOS2E50240763"
-            ,"MOS2E50240769"
-            ,"MOS2E50240770"
-            ,"MOS2E50240761"
-            ,"MOS2E50240771"
-            ,"MOS2E50240754"
-            ,"MOS2E50240768"
-            ,"MOS2E50240756"
-            ,"MOS2E49240899"
-            ,"MOS2E49240890"
-            ,"MOS2E46240317"
-            ,"MOS2E49240927"
-            ,"MOS2E49240942"]
+            "MOS2E49240871",
+            "MOS2E49240982",
+            "MOS2E49240916",
+            "MOS2E49240934",
+            "MOS2E50240770"]
+left_id = ["MOS2E50240763",
+            "MOS2E50240769",
+            "MOS2E50240761",
+            "MOS2E50240771",
+            "MOS2E50240754",
+            "MOS2E50240768",
+            "MOS2E50240756",
+            "MOS2E49240899",
+            "MOS2E46240317",
+            "MOS2E49240927",
+            "MOS2E49240931",
+            "MOS2E49240890"]
 device_name = "actilife"
 class S3UploadWorker(QThread):
     progress_updated = Signal(int)
